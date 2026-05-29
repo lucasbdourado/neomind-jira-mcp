@@ -115,27 +115,6 @@ Create or update the Antigravity MCP configuration file:
 C:\Users\your.user\.gemini\antigravity\mcp_config.json
 ```
 
-Example using a browser Jira session cookie:
-
-```json
-{
-  "mcpServers": {
-    "jira": {
-      "command": "java",
-      "args": [
-        "-jar",
-        "C:\\Users\\your.user\\path\\to\\neomind-jira-mcp\\target\\jira-mcp-server-1.0.0.jar"
-      ],
-      "env": {
-        "JIRA_BASE_URL": "https://jira.example.com",
-        "JIRA_COOKIE": "JSESSIONID=your.session.id; atlassian.xsrf.token=your.xsrf.token",
-        "JIRA_SPRINT_FIELD_ID": "customfield_10007"
-      }
-    }
-  }
-}
-```
-
 Restart or reload MCP servers in Antigravity after changing the configuration. If the Jira browser session expires and `JIRA_USERNAME`/`JIRA_PASSWORD` are configured, the server refreshes `JSESSIONID` automatically through `/login.jsp` after a 401 response.
 
 ## Cursor Configuration
