@@ -15,7 +15,8 @@ public class JiraMcpApplication {
     public static void main(String[] args) {
         new SpringApplicationBuilder(JiraMcpApplication.class)
                 .bannerMode(Banner.Mode.OFF)
-                .web(WebApplicationType.SERVLET)
+                .web(WebApplicationType.NONE)
+                .logStartupInfo(false)
                 .run(args);
     }
 
