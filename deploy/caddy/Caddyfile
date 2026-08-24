@@ -1,0 +1,27 @@
+{$MCP_DOMAIN:localhost} {
+    # Client Basic Authentication
+    basicauth /mcp* {
+        {$MCP_AUTH_USER:mcpuser} {$MCP_AUTH_PASSWORD_HASH:$2a$14$V0AkmFv6G65QePqf7qXp4u1V10oUoXh1a6Vl2J0vG20aO1q2W3E4q}
+    }
+
+    # Reverse proxy to internal Java MCP server with unbuffered streaming for SSE / HTTP Streamable
+    reverse_proxy jira-mcp-server:8080 {
+        flush_interval -1
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer"
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}

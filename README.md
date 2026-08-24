@@ -1,6 +1,6 @@
 # jira-mcp-server
 
-Read-only Model Context Protocol (MCP) server for legacy Jira Server instances. It runs locally as a Java 21 Spring Boot application, communicates with MCP clients over stdio, and calls Jira REST API v2 using your own Jira credentials.
+Read-only Model Context Protocol (MCP) server for legacy Jira Server instances. It runs as a Java 21 Spring Boot application, communicates with MCP clients over **Streamable HTTP** (at `/mcp` on port `8080` by default), and calls Jira REST API v2 using your own Jira credentials.
 
 ## Features
 
@@ -34,6 +34,8 @@ Optional variables:
 
 | Variable | Default | Description |
 |---|---|---|
+| `PORT` | `8080` | HTTP port where the MCP server listens. |
+| `MCP_ENDPOINT` | `/mcp` | Path for the Streamable HTTP MCP endpoint. |
 | `JIRA_COOKIE` | empty | Optional initial raw Jira browser cookie header. If a Jira REST request returns 401, the server posts `JIRA_USERNAME` and `JIRA_PASSWORD` to `/login.jsp`, stores the returned `JSESSIONID`, and retries the request once. |
 | `JIRA_RELATED_PRD_FIELD_ID` | `customfield_10005` | Jira custom field ID that stores the related PRD reference or URL. |
 | `MCP_SERVER_NAME` | `jira-mcp-server` | MCP server name reported to clients. |
@@ -62,7 +64,7 @@ If `JIRA_SPRINT_FIELD_ID` is wrong, `jira_get_development_context` still works, 
 Build the executable Spring Boot JAR:
 
 ```bash
-mvn clean package
+mvn package
 ```
 
 The build creates:
@@ -73,13 +75,14 @@ target/jira-mcp-server-1.0.0.jar
 
 ## Run Locally
 
-Set the environment variables, then start the stdio MCP server:
+Set the environment variables, then start the Streamable HTTP MCP server:
 
 ```bash
 export JIRA_BASE_URL="https://jira.example.com"
 export JIRA_USERNAME="your.username"
 export JIRA_PASSWORD="your.password.or.token"
 export JIRA_SPRINT_FIELD_ID="customfield_10007"
+export PORT="8080"
 
 java -jar target/jira-mcp-server-1.0.0.jar
 ```
@@ -91,91 +94,90 @@ $env:JIRA_BASE_URL = "https://jira.example.com"
 $env:JIRA_USERNAME = "your.username"
 $env:JIRA_PASSWORD = "your.password.or.token"
 $env:JIRA_SPRINT_FIELD_ID = "customfield_10007"
+$env:PORT = "8080"
 
 java -jar target\jira-mcp-server-1.0.0.jar
 ```
 
-Optional initial cookie example:
+Once running, the MCP server is accessible at `http://localhost:8080/mcp`.
 
-```powershell
-$env:JIRA_BASE_URL = "https://jira.example.com"
-$env:JIRA_COOKIE = "JSESSIONID=your.session.id; atlassian.xsrf.token=your.xsrf.token"
-$env:JIRA_SPRINT_FIELD_ID = "customfield_10007"
+## Docker & Remote VPS Deployment
 
-java -jar target\jira-mcp-server-1.0.0.jar
+You can run the server in Docker or deploy it to a remote Linux VPS behind a reverse proxy (Caddy or Nginx) with automatic HTTPS (TLS) and authentication.
+
+### Local Docker Run
+
+Build and run using Docker Compose:
+
+```bash
+docker compose up -d --build
 ```
 
-This process is intended to be launched by an MCP client. It keeps stdout reserved for JSON-RPC MCP traffic and sends application logs to stderr.
+### Production VPS Deployment
 
-## Antigravity Configuration
+See the detailed [deploy/README.md](deploy/README.md) for step-by-step instructions on:
+- Configuring the UFW firewall (exposing only ports `80`, `443`, and `22`).
+- Setting up DNS and automatic Let's Encrypt TLS via Caddy.
+- Generating bcrypt authentication hashes for client Basic Auth.
+- Keeping Jira credentials strictly inside `.env` on the VPS host with `chmod 600`.
+- Connecting Claude Desktop, Cursor, and other MCP clients over HTTPS.
 
-Create or update the Antigravity MCP configuration file:
+Example production compose start:
 
-```text
-C:\Users\your.user\.gemini\antigravity\mcp_config.json
+```bash
+cp .env.production.example .env
+chmod 600 .env
+# Edit .env with your domain, credentials, and password hash
+docker compose up -d --build
 ```
 
-Restart or reload MCP servers in Antigravity after changing the configuration. If the Jira browser session expires and `JIRA_USERNAME`/`JIRA_PASSWORD` are configured, the server refreshes `JSESSIONID` automatically through `/login.jsp` after a 401 response.
+## MCP Client Configuration
 
-## Cursor Configuration
+### Remote Streamable HTTP (Recommended)
 
-Create or update `.cursor/mcp.json` in the workspace that should use the Jira tools:
+Clients connecting over Streamable HTTP can be configured to point to the server URL (`http://localhost:8080/mcp` or remote host):
+
+#### Antigravity Configuration
+
+In `mcp_config.json`:
 
 ```json
 {
   "mcpServers": {
     "jira": {
-      "command": "java",
-      "args": [
-        "-jar",
-        "C:\\Users\\your.user\\path\\to\\neomind-jira-mcp\\target\\jira-mcp-server-1.0.0.jar"
-      ],
-      "env": {
-        "JIRA_BASE_URL": "https://jira.example.com",
-        "JIRA_USERNAME": "your.username",
-        "JIRA_PASSWORD": "your.password.or.token",
-        "JIRA_SPRINT_FIELD_ID": "customfield_10007"
-      }
+      "url": "http://localhost:8080/mcp"
     }
   }
 }
 ```
 
-Restart Cursor after changing the MCP configuration.
+#### Cursor Configuration
 
-## Claude Desktop Configuration
-
-Add the server to the `mcpServers` object in your Claude Desktop configuration file.
-
-Windows configuration file:
-
-```text
-%APPDATA%\Claude\claude_desktop_config.json
-```
-
-Example:
+In `.cursor/mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "jira": {
-      "command": "java",
-      "args": [
-        "-jar",
-        "C:\\Users\\your.user\\path\\to\\neomind-jira-mcp\\target\\jira-mcp-server-1.0.0.jar"
-      ],
-      "env": {
-        "JIRA_BASE_URL": "https://jira.example.com",
-        "JIRA_USERNAME": "your.username",
-        "JIRA_PASSWORD": "your.password.or.token",
-        "JIRA_SPRINT_FIELD_ID": "customfield_10007"
-      }
+      "url": "http://localhost:8080/mcp"
     }
   }
 }
 ```
 
-Restart Claude Desktop after changing the configuration.
+#### Claude Desktop / Generic MCP Client Configuration
+
+For clients supporting remote HTTP/SSE servers:
+
+```json
+{
+  "mcpServers": {
+    "jira": {
+      "url": "http://localhost:8080/mcp"
+    }
+  }
+}
+```
 
 ## Example Tool Queries
 
